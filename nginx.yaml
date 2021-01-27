@@ -12,5 +12,5 @@
   - name: "Start Nginx"
     service:
       name: nginx
-      stated: stated
+      state: started
  

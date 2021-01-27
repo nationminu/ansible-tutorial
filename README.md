@@ -43,6 +43,12 @@ usage: ansible [-h] [--version] [-v] [-b] [--become-method BECOME_METHOD] [--bec
                [-a MODULE_ARGS] [-m MODULE_NAME]
                pattern
 ```
+> usage : <BR>
+> -b : become 명령으로 root 권한 획득 <BR>
+> -k : 비밀번호 입력  <BR>
+> --private-key : 키파일 위치 지정 <br>
+> -f : 병렬쓰레드 수 지정 <br>
+
 
 ## Ansible 프로젝트 생성
 
@@ -72,11 +78,22 @@ sample-2
 sample-3
 ```
 
-## Ansible Ad-hoc 명령어
-> ping 모듈 사용하기 
-<>
+## Ansible Ad-hoc 명령
+
+## 전체 호스트 확인
+---
 ```
-ansible all -i inventory -m ping 
+$ ansible all -i inventory --list-hosts
+  hosts (3):
+    sample-1
+    sample-2
+    sample-3
+```
+
+## ping : OS PING 모듈
+---
+```
+$ ansible all -i inventory -m ping 
 sample-1 | UNREACHABLE! => {
     "changed": false,
     "msg": "Failed to connect to the host via ssh: Warning: Permanently added '172.31.25.93' (ECDSA) to the list of known hosts.\r\nubuntu@172.31.25.93: Permission denied (publickey).",
@@ -84,64 +101,156 @@ sample-1 | UNREACHABLE! => {
 } 
 ...
 ```
-!! Permission denied (publickey) 권한이 없다는 메시가 발생한다. --private-key 옵션을 사용하여 key 위치를 지정한다. <BR>
-!v ansible.cfg 설정으로 해결가능.
+> Permission denied (publickey) 권한이 없다는 메시가 발생한다. --private-key 옵션을 사용하여 key 위치를 지정한다. <BR>
 ```
+$ ansible all -i inventory -m ping --private-key ./ssh/key.pem
+sample-1 | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+...
+```
+> ansible.cfg 설정으로 해결가능. <br>
+> 더이상 키를 입력하지 않기 위해 설정파일을 사용한다.
+```
+$ vi ansible.cfg
 [defaults]
 private_key_file = ./ssh/key.pem
 ```
 
+### setup : OS 정보 확인 모듈  
+---
+https://docs.ansible.com/ansible/latest/collections/ansible/builtin/setup_module.html
+
+> 모든 서버에 OS 정보를 배열로 저장
+```
+]$ ansible 'all' -i inventory -m setup
+```
+> 모든 서버에 OS 정보 확인
+```
+]$ ansible 'all' -i inventory -m setup -a 'filter=ansible_distribution'
+sample-1 | SUCCESS => {
+    "ansible_facts": {
+        "ansible_distribution": "Ubuntu" 
+    },
+    "changed": false
+}
+...
+
+# For a Ubuntu Bionic Host the distribution facts look like this:
+#        "ansible_distribution": "Ubuntu", 
+#        "ansible_distribution_file_parsed": true, 
+#        "ansible_distribution_file_path": "/etc/os-release", 
+#        "ansible_distribution_file_variety": "Debian", 
+#        "ansible_distribution_major_version": "18", 
+#        "ansible_distribution_release": "bionic", 
+#        "ansible_distribution_version": "18.04"
+``` 
+
+## user : OS 사용자 관리 모듈 <BR>
+---
+https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html
+> example > 모든 서버에 "student" 사용자 추가 
+```
+$ ansible 'all' -i inventory -m user -a "name=student password={{ 'student' | password_hash('sha512') }} uid=1500" -b 
+```
+> authorized_key 모듈을 사용하여 키파일로 로그인을 위한 인증
+
+https://docs.ansible.com/ansible/latest/collections/ansible/posix/authorized_key_module.html#examples
+```
+$ ansible 'all' -i inventory -m authorized_key -a "user=student state=present key={{lookup('file', '~/.ssh/authorized_keys')}}" -b
+```
+> 서버에 로그인해서 사용자 id 확인
+```
+$ ssh student@172.31.25.93
+$ id
+uid=1500(student) gid=1001(student) groups=1001(student)
+```
+
+## apt : 패키지 설치/삭제
+---
+https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html
+```
+$ ansible web -i inventory -m apt -a 'name=nginx state=present' -b 
+$ ansible was -i inventory -m apt -a 'name=tomcat9 state=present' -b
+$ ansible db  -i inventory -m apt -a 'name=mariadb-server state=present' -b
+
+$ ansible web -i inventory -m apt -a 'name=nginx state=absent' -b
+$ ansible was -i inventory -m apt -a 'name=tomcat9 state=absent' -b
+$ ansible db  -i inventory -m apt -a 'name=mariadb-server state=absent' -b
+```
+
+## service : 패키지 실행/종료
+---
+https://docs.ansible.com/ansible/latest/collections/ansible/builtin/service_module.html
+```
+ansible web -i inventory -m service -a 'name=nginx state=started' -b
+ansible web -i inventory -m service -a 'name=nginx state=stopped' -b
+
+ansible was -i inventory -m service -a 'name=tomcat9 state=started' -b
+ansible was -i inventory -m service -a 'name=tomcat9 state=stopped' -b
+
+ansible db -i inventory -m service -a 'name=mariadb state=started' -b
+ansible db -i inventory -m service -a 'name=mariadb state=stopped' -b
+```
+
+## copy : HTML 컨텐츠 복사하기
+---
+https://docs.ansible.com/ansible/latest/collections/ansible/builtin/copy_module.html
+```
+ansible all -i inventory -m copy -a 'src=html/index.html dest=/var/www/html' -b
+
+$ curl 172.31.25.93
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Example</title>
+    </head>
+    <body>
+        <p>HELLO ANSIBLE</p>
+    </body>
+</html>
+```
+
+## reboot : OS 재시작하고 기다리기
+---
+https://docs.ansible.com/ansible/latest/collections/ansible/builtin/reboot_module.html
+```
+ansible web -i inventory -m reboot -a 'reboot_timeout=500' -bv
+sample-1 | CHANGED => {
+    "changed": true,
+    "elapsed": 48,
+    "rebooted": true
+}
+```
+
 # Ansible Playbook
+> Ansible Playbook은 yaml 포맷으로 되어 있는 파일로, Inventory에 정의된 호스트들이 무엇을 해야하는지 정의.
+쉽게 작성하고 사람이 읽을 수 있는 형식으로 설계되어 있어 습득과 이해가 빠름.
+여러 개의 playbook 을 정의하는 것이 가능.
 
-## 서버 사용자 추가 
+> nginx 설치 playbook 예제
 ```
-]$ ansible 'all' -i inventory -m user -a "name=student password={{ 'student' | password_hash('sha512') }}" -b 
-```
+---
+- name: "Install Nginx"
+  hosts: web
+  become: true
 
-## passlib 라이브러리 에러
-> "msg": "crypt.crypt not supported on Mac OS X/Darwin, install passlib python module" 에러 발생시 python library 설치
-```
-]$ pip3 install passlib
-```
-
-## 1. SSH key 만들기
-```
-]$ mkdir key
-]$ ssh-keygen -t rsa -f key/mykey
-Generating public/private rsa key pair.
-Enter passphrase (empty for no passphrase):
-Enter same passphrase again:
-Your identification has been saved in key/mykey.
-Your public key has been saved in key/mykey.pub.
-The key fingerprint is:
-SHA256:eJ2mCJ3DXVoQTxkk1ep2AilCU5UN/HNSHh+hq5Q67S8 ssong@bastion.mwk8s.com
-The key's randomart image is:
-+---[RSA 2048]----+
-|     ..o*B=+  .. |
-|    o   o=o +..  |
-|   . .   o++.o . |
-|    .o.+o==oo..  |
-|    ..*.So*+.    |
-|     . + *+..    |
-|      . +.oo     |
-|         oE      |
-|          .o.    |
-+----[SHA256]-----+
-
-]$ ls -al key/
-total 8
-drwxrwxr-x. 2 ssong ssong   36 Jan 26 01:47 .
-drwxrwxr-x. 3 ssong ssong   91 Jan 26 01:47 ..
--rw-------. 1 ssong ssong 1675 Jan 26 01:47 mykey
--rw-r--r--. 1 ssong ssong  405 Jan 26 01:47 mykey.pub
+  tasks:
+  - name: "Install Nginx"
+    apt:
+      name: nginx
+      state: present
+  
+  - name: "Start Nginx"
+    service:
+      name: nginx
+      state: started
 ```
 
-## SSH KEY Copy
-```
-]$ ansible 'all' -i inventory -m copy -a 'src=./key/mykey.pub dest=/home/student/.ssh/authorized_keys' -b
-]$ ansible 'bastion' -i inventory -m copy -a 'src=./key/mykey dest=/home/student/.ssh/id_rsa' -b
 
-]$ssh -i key/mykey student@10.65.40.11
-Last login: Tue Jan 26 01:13:53 2021 from 10.65.40.10
-[student@web-0 ~]$ 
-```
+# Ansible Tutorial
+https://github.com/ansible/ansible-examples

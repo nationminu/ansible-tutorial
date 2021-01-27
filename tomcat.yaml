@@ -1,0 +1,16 @@
+---
+- name: "Install Tomcat"
+  hosts: was
+  become: true
+
+  tasks:
+  - name: "Install Tomcat"
+    apt:
+      name: tomcat9
+      state: present
+  
+  - name: "Start Tomcat"
+    service:
+      name: tomcat9
+      state: started
+ 

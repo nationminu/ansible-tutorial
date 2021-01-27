@@ -1,0 +1,15 @@
+---
+- name: "Install Mariadb"
+  hosts: db
+  become: true
+
+  tasks:
+  - name: "Install Mariadb"
+    apt:
+      name: mariadb-server
+      state: present
+  
+  - name: "Start Mariadb"
+    service:
+      name: mariadb
+      state: started
