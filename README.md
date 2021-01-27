@@ -232,7 +232,7 @@ sample-1 | CHANGED => {
 쉽게 작성하고 사람이 읽을 수 있는 형식으로 설계되어 있어 습득과 이해가 빠름.
 여러 개의 playbook 을 정의하는 것이 가능.
 
-> nginx 설치 playbook 예제
+> playbook 예제
 ```
 ---
 - name: "Install Nginx"
@@ -249,6 +249,38 @@ sample-1 | CHANGED => {
     service:
       name: nginx
       state: started
+
+---
+- name: "Install Tomcat"
+  hosts: was
+  become: true
+
+  tasks:
+  - name: "Install Tomcat"
+    apt:
+      name: tomcat9
+      state: present
+  
+  - name: "Start Tomcat"
+    service:
+      name: tomcat9
+      state: started
+
+ ---
+- name: "Install Mariadb"
+  hosts: db
+  become: true
+
+  tasks:
+  - name: "Install Mariadb"
+    apt:
+      name: mariadb-server
+      state: present
+  
+  - name: "Start Mariadb"
+    service:
+      name: mariadb
+      state: started      
 ```
 
 
