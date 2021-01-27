@@ -1,0 +1,12 @@
+sample-1 ansible_host=172.31.25.93 ip=34.254.241.209
+sample-2 ansible_host=172.31.22.153 ip=34.245.107.47
+sample-3 ansible_host=172.31.20.17 ip=34.243.48.83
+
+[web]
+sample-1
+
+[was]
+sample-2
+
+[db]
+sample-3
