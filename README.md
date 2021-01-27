@@ -30,7 +30,7 @@ ansible 2.9.6
   python version = 3.8.5 (default, Jul 28 2020, 12:59:40) [GCC 9.3.0]
 ```
 
-# Ansible 기본 사용법
+## Ansible 기본 사용법
 > ansible <대상호스트> -i <인벤토리파일> -m <모듈> -a <모듈 옵션> -u <SSH사용자> 
 ```
 $ ansible --help
@@ -44,12 +44,18 @@ usage: ansible [-h] [--version] [-v] [-b] [--become-method BECOME_METHOD] [--bec
                pattern
 ```
 
-# Ansible 프로젝트 생성
+## Ansible 프로젝트 생성
+
+> git 에서 tutorial 프로젝트를 다운로드 받고 Key 파일을 복사한다.
+
 ```
-git clone https://github.com/nationminu/ansible-tutorial.git
+$ git clone https://github.com/nationminu/ansible-tutorial.git
+$ cd ansible-tutorial
+
+$ cp -r ~/terraform-tutorial-aws/ssh .
 ```
 
-# 인벤토리 파일 생성
+## 인벤토리 파일 생성
 > example > inventory.txt
 ```
 sample-1 ansible_host=172.31.25.93 ip=34.254.241.209
@@ -66,7 +72,28 @@ sample-2
 sample-3
 ```
 
-# 서버 사용자 추가 
+## Ansible Ad-hoc 명령어
+> ping 모듈 사용하기 
+<>
+```
+ansible all -i inventory -m ping 
+sample-1 | UNREACHABLE! => {
+    "changed": false,
+    "msg": "Failed to connect to the host via ssh: Warning: Permanently added '172.31.25.93' (ECDSA) to the list of known hosts.\r\nubuntu@172.31.25.93: Permission denied (publickey).",
+    "unreachable": true
+} 
+...
+```
+!! Permission denied (publickey) 권한이 없다는 메시가 발생한다. --private-key 옵션을 사용하여 key 위치를 지정한다. <BR>
+!v ansible.cfg 설정으로 해결가능.
+```
+[defaults]
+private_key_file = ./ssh/key.pem
+```
+
+# Ansible Playbook
+
+## 서버 사용자 추가 
 ```
 ]$ ansible 'all' -i inventory -m user -a "name=student password={{ 'student' | password_hash('sha512') }}" -b 
 ```
